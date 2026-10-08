@@ -1,0 +1,10 @@
+apache-airflow-providers-airbyte
+apache-airflow-providers-amazon
+apache-airflow-providers-celery
+apache-airflow-providers-common-sql
+apache-airflow-providers-dbt-cloud
+apache-airflow-providers-http
+apache-airflow-providers-oracle
+apache-airflow-providers-postgres
+apache-airflow-providers-snowflake
+apache-airflow-providers-standard

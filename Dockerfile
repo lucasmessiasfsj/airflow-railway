@@ -15,7 +15,11 @@
 # Pinned rather than floating: the five Airflow services must run the same build
 # as each other, and the metadata database has an on-disk schema this version
 # owns.
-FROM apache/airflow:3.3.1
+FROM apache/airflow:3.3.1-python3.13
+
+ARG AIRFLOW_VERSION=3.3.1
+ARG PYTHON_VERSION=3.13
+ARG AIRFLOW_CONSTRAINTS_URL=https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt
 
 USER root
 
@@ -24,6 +28,21 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends socat \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
+
+USER 50000
+
+COPY requirements-providers.txt /tmp/requirements-providers.txt
+
+# Install providers during the image build, pinned by Airflow's official
+# Python 3.13 constraint set. Repeating apache-airflow prevents a provider
+# dependency from changing the core version transitively.
+RUN pip install --no-cache-dir \
+    "apache-airflow==${AIRFLOW_VERSION}" \
+    --requirement /tmp/requirements-providers.txt \
+    --constraint "${AIRFLOW_CONSTRAINTS_URL}" \
+ && pip check
+
+USER root
 
 COPY railway-entrypoint.sh /railway-entrypoint.sh
 COPY railway_airflow/ /opt/airflow/railway_airflow/
