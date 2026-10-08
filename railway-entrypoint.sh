@@ -111,7 +111,8 @@ export AIRFLOW__CORE__EXECUTION_API_SERVER_URL
 # ---------------------------------------------------------------------------
 if [ -n "${AIRFLOW_DAGS_GIT_REPO_URL:-}" ] && [ -z "${AIRFLOW__DAG_PROCESSOR__DAG_BUNDLE_CONFIG_LIST:-}" ]; then
   AIRFLOW__DAG_PROCESSOR__DAG_BUNDLE_CONFIG_LIST="$(python "${HELPERS}/dag_bundles.py" \
-    "${AIRFLOW_DAGS_GIT_REPO_URL}" "${AIRFLOW_DAGS_GIT_REF:-main}" "${AIRFLOW_DAGS_GIT_SUBDIR:-dags}")"
+    "${AIRFLOW_DAGS_GIT_REPO_URL}" "${AIRFLOW_DAGS_GIT_REF:-main}" \
+    "${AIRFLOW_DAGS_GIT_SUBDIR:-dags}" "${AIRFLOW_DAGS_GIT_CONN_ID:-}")"
   export AIRFLOW__DAG_PROCESSOR__DAG_BUNDLE_CONFIG_LIST
 fi
 

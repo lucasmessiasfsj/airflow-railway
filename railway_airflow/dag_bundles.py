@@ -1,6 +1,6 @@
 """Render ``[dag_processor] dag_bundle_config_list`` for Railway.
 
-    python dag_bundles.py <git repo url> <tracking ref> <subdir>
+    python dag_bundles.py <git repo url> <tracking ref> <subdir> <connection id>
 
 The image always carries the repository's own ``dags/`` directory as the local
 bundle. Supplying a git URL adds a second, versioned bundle so a deployer can
@@ -19,12 +19,14 @@ LOCAL_BUNDLE = {
 }
 
 
-def bundles(repo_url: str, ref: str, subdir: str) -> str:
+def bundles(repo_url: str, ref: str, subdir: str, conn_id: str = "") -> str:
     configured = [LOCAL_BUNDLE]
     if repo_url:
         kwargs = {"repo_url": repo_url, "tracking_ref": ref or "main"}
         if subdir:
             kwargs["subdir"] = subdir
+        if conn_id:
+            kwargs["git_conn_id"] = conn_id
         configured.append(
             {
                 "name": "dags-git",
@@ -36,6 +38,8 @@ def bundles(repo_url: str, ref: str, subdir: str) -> str:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        raise SystemExit("usage: dag_bundles.py <repo url> <ref> <subdir>")
-    print(bundles(*sys.argv[1:4]))
+    if len(sys.argv) not in (4, 5):
+        raise SystemExit(
+            "usage: dag_bundles.py <repo url> <ref> <subdir> [connection id]"
+        )
+    print(bundles(*sys.argv[1:]))
