@@ -9,3 +9,14 @@ apache-airflow-providers-oracle
 apache-airflow-providers-postgres
 apache-airflow-providers-snowflake
 apache-airflow-providers-standard
+confluent-kafka
+fdb
+kafka-python
+orjson
+pandas
+paramiko
+pyarrow
+pymongo
+pymssql
+oracledb
+smbprotocol
