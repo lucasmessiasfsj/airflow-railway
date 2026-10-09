@@ -20,76 +20,144 @@
   "graphTooltip": 1,
   "id": null,
   "links": [],
-  "liveNow": false,
+  "liveNow": true,
   "panels": [
     {
+      "id": 100,
+      "title": "",
+      "type": "text",
       "gridPos": {
-        "h": 3,
-        "w": 24,
         "x": 0,
-        "y": 0
+        "y": 0,
+        "w": 5,
+        "h": 3
       },
-      "id": 1,
+      "transparent": false,
       "options": {
-        "content": "<div style=\"text-align:center\"><h1 style=\"color:#21BF73;margin:0\">AIRFLOW MONITOR</h1><p>Railway · Airflow 3 · CeleryExecutor</p></div>",
-        "mode": "html"
-      },
-      "transparent": true,
-      "type": "text"
+        "mode": "html",
+        "content": "<div style=\"height:100%;display:flex;align-items:center;justify-content:center;line-height:.9;font-family:Arial,sans-serif\"><div><div style=\"font-size:12px;letter-spacing:2px;color:#f2495c;font-weight:700\">FARMÁCIAS</div><div style=\"font-size:28px;color:#5794f2;font-weight:800\">São <span style=\"color:#f2495c\">João</span></div></div></div>"
+      }
     },
     {
+      "id": 101,
+      "title": "",
+      "type": "text",
+      "gridPos": {
+        "x": 5,
+        "y": 0,
+        "w": 14,
+        "h": 3
+      },
+      "transparent": false,
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"height:100%;display:flex;align-items:center;justify-content:center;text-align:center\"><span style=\"font-size:25px;font-weight:700;color:#f2f2f2;letter-spacing:.5px\">Monitoramento Airflow</span></div>"
+      }
+    },
+    {
+      "id": 102,
+      "title": "",
+      "type": "grafana-clock-panel",
+      "gridPos": {
+        "x": 19,
+        "y": 0,
+        "w": 5,
+        "h": 3
+      },
+      "transparent": false,
+      "options": {
+        "mode": "time",
+        "timezone": "America/Sao_Paulo",
+        "timeFormat": "HH:mm:ss",
+        "dateFormat": "DD/MM/YYYY",
+        "showDate": true,
+        "showTimezone": false,
+        "fontMonospace": true,
+        "timeFontSize": "26px",
+        "dateFontSize": "11px",
+        "refresh": "sec",
+        "bgColor": "transparent"
+      },
+      "pluginVersion": "3.2.4",
+      "targets": []
+    },
+    {
+      "id": 2,
+      "title": "DADOS",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 12,
+        "h": 4
+      },
+      "transparent": false,
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "airflow-postgres"
       },
       "fieldConfig": {
         "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
           "mappings": [
             {
+              "type": "value",
               "options": {
-                "Atenção": {
-                  "color": "orange",
-                  "index": 1,
-                  "text": "Atenção"
-                },
-                "Atenção Crítica": {
-                  "color": "dark-red",
-                  "index": 2,
-                  "text": "Atenção Crítica"
-                },
-                "Estável": {
-                  "color": "green",
+                "-1": {
                   "index": 0,
-                  "text": "Estável"
+                  "text": "SEM DAGS ATIVAS",
+                  "color": "dark-gray"
+                },
+                "0": {
+                  "index": 1,
+                  "text": "SAUDÁVEL",
+                  "color": "green"
+                },
+                "1": {
+                  "index": 2,
+                  "text": "ATENÇÃO",
+                  "color": "yellow"
+                },
+                "2": {
+                  "index": 3,
+                  "text": "CRÍTICO",
+                  "color": "red"
                 }
-              },
-              "type": "value"
+              }
             }
           ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "dark-gray",
                 "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 2
               }
             ]
-          }
+          },
+          "unit": "short"
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 3
-      },
-      "id": 2,
       "options": {
         "colorMode": "background",
         "graphMode": "none",
         "justifyMode": "center",
-        "orientation": "auto",
+        "orientation": "horizontal",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -97,194 +165,35 @@
           "fields": "",
           "values": false
         },
-        "textMode": "value_and_name",
+        "textMode": "value",
         "wideLayout": true
       },
       "targets": [
         {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "airflow-postgres"
+          },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CASE WHEN (SELECT COUNT(*) FROM dag_run WHERE state = 'failed' AND start_date >= NOW() - INTERVAL '1 hour') > 5 OR (SELECT COUNT(*) FROM task_instance WHERE state = 'queued' AND COALESCE(queued_dttm, scheduled_dttm) < NOW() - INTERVAL '10 minutes') > 0 THEN 'Atenção Crítica' WHEN (SELECT COUNT(*) FROM dag_run WHERE state = 'failed' AND start_date >= NOW() - INTERVAL '1 hour') > 0 OR (SELECT COUNT(*) FROM task_instance WHERE state = 'running' AND start_date < NOW() - INTERVAL '2 hours') > 0 THEN 'Atenção' ELSE 'Estável' END AS status",
+          "rawSql": "WITH classificadas AS (\n  SELECT d.dag_id\n  FROM dag d\n  WHERE d.is_stale = FALSE\n    AND d.is_paused = FALSE\n    AND d.is_active = TRUE\n    AND (NOT (\n  d.owners ILIKE '%integr%'\n  OR EXISTS (\n    SELECT 1 FROM dag_tag dt\n    WHERE dt.dag_id = d.dag_id AND dt.name ILIKE '%integr%'\n  )\n))\n), ultima_execucao AS (\n  SELECT DISTINCT ON (dr.dag_id) dr.dag_id, dr.state\n  FROM dag_run dr\n  JOIN classificadas c ON c.dag_id = dr.dag_id\n  ORDER BY dr.dag_id, COALESCE(dr.logical_date, dr.created_at) DESC\n), indicadores AS (\n  SELECT\n    (SELECT COUNT(*) FROM classificadas) AS dags,\n    (SELECT COUNT(*) FROM ultima_execucao WHERE state = 'failed') AS falhas,\n    (SELECT COUNT(*) FROM task_instance ti JOIN classificadas c ON c.dag_id = ti.dag_id\n      WHERE ti.state = 'queued' AND COALESCE(ti.queued_dttm, ti.scheduled_dttm) < NOW() - INTERVAL '10 minutes') AS fila_atrasada,\n    (SELECT COUNT(*) FROM task_instance ti JOIN classificadas c ON c.dag_id = ti.dag_id\n      WHERE ti.state = 'running' AND ti.start_date < NOW() - INTERVAL '2 hours') AS execucoes_longas\n)\nSELECT CASE\n  WHEN dags = 0 THEN -1\n  WHEN fila_atrasada > 0 OR falhas >= 5 THEN 2\n  WHEN falhas > 0 OR execucoes_longas > 0 THEN 1\n  ELSE 0\nEND AS status\nFROM indicadores",
           "refId": "A"
         }
       ],
-      "title": "Saúde Geral",
-      "type": "stat"
+      "description": "Considera apenas DAGs ativas; falhas recentes, fila acima de 10 min e execuções acima de 2 h."
     },
     {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "airflow-postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "fixedColor": "green",
-            "mode": "fixed"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
+      "id": 17,
+      "title": "INTEGRAÇÃO",
+      "type": "stat",
       "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 6,
-        "y": 3
-      },
-      "id": 3,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT COUNT(*) AS ativas FROM dag WHERE is_paused = FALSE AND is_stale = FALSE",
-          "refId": "A"
-        }
-      ],
-      "title": "DAGs Ativas",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "airflow-postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "fixedColor": "gray",
-            "mode": "fixed"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "gray",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 9,
-        "y": 3
-      },
-      "id": 4,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT COUNT(*) AS pausadas FROM dag WHERE is_paused = TRUE AND is_stale = FALSE",
-          "refId": "A"
-        }
-      ],
-      "title": "DAGs Pausadas",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "airflow-postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "fixedColor": "red",
-            "mode": "fixed"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
         "x": 12,
-        "y": 3
+        "y": 3,
+        "w": 12,
+        "h": 4
       },
-      "id": 5,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT COUNT(*) AS falhas FROM dag_run WHERE state = 'failed' AND start_date >= NOW() - INTERVAL '24 hours'",
-          "refId": "A"
-        }
-      ],
-      "title": "Falhas · 24h",
-      "type": "stat"
-    },
-    {
+      "transparent": false,
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "airflow-postgres"
@@ -292,152 +201,368 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "fixedColor": "blue",
-            "mode": "fixed"
+            "mode": "thresholds"
           },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-1": {
+                  "index": 0,
+                  "text": "SEM DAGS ATIVAS",
+                  "color": "dark-gray"
+                },
+                "0": {
+                  "index": 1,
+                  "text": "SAUDÁVEL",
+                  "color": "green"
+                },
+                "1": {
+                  "index": 2,
+                  "text": "ATENÇÃO",
+                  "color": "yellow"
+                },
+                "2": {
+                  "index": 3,
+                  "text": "CRÍTICO",
+                  "color": "red"
+                }
               }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 15,
-        "y": 3
-      },
-      "id": 6,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
+            }
           ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT COUNT(*) AS executando FROM task_instance WHERE state = 'running'",
-          "refId": "A"
-        }
-      ],
-      "title": "Tasks Executando",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "airflow-postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "fixedColor": "orange",
-            "mode": "fixed"
-          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "dark-gray",
                 "value": null
               },
               {
-                "color": "orange",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 18,
-        "y": 3
-      },
-      "id": 7,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT COUNT(*) AS fila FROM task_instance WHERE state = 'queued'",
-          "refId": "A"
-        }
-      ],
-      "title": "Tasks em Fila",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "airflow-postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "fixedColor": "purple",
-            "mode": "fixed"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
                 "color": "green",
-                "value": null
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 1
               },
               {
                 "color": "red",
-                "value": 1
+                "value": 2
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "airflow-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH classificadas AS (\n  SELECT d.dag_id\n  FROM dag d\n  WHERE d.is_stale = FALSE\n    AND d.is_paused = FALSE\n    AND d.is_active = TRUE\n    AND ((\n  d.owners ILIKE '%integr%'\n  OR EXISTS (\n    SELECT 1 FROM dag_tag dt\n    WHERE dt.dag_id = d.dag_id AND dt.name ILIKE '%integr%'\n  )\n))\n), ultima_execucao AS (\n  SELECT DISTINCT ON (dr.dag_id) dr.dag_id, dr.state\n  FROM dag_run dr\n  JOIN classificadas c ON c.dag_id = dr.dag_id\n  ORDER BY dr.dag_id, COALESCE(dr.logical_date, dr.created_at) DESC\n), indicadores AS (\n  SELECT\n    (SELECT COUNT(*) FROM classificadas) AS dags,\n    (SELECT COUNT(*) FROM ultima_execucao WHERE state = 'failed') AS falhas,\n    (SELECT COUNT(*) FROM task_instance ti JOIN classificadas c ON c.dag_id = ti.dag_id\n      WHERE ti.state = 'queued' AND COALESCE(ti.queued_dttm, ti.scheduled_dttm) < NOW() - INTERVAL '10 minutes') AS fila_atrasada,\n    (SELECT COUNT(*) FROM task_instance ti JOIN classificadas c ON c.dag_id = ti.dag_id\n      WHERE ti.state = 'running' AND ti.start_date < NOW() - INTERVAL '2 hours') AS execucoes_longas\n)\nSELECT CASE\n  WHEN dags = 0 THEN -1\n  WHEN fila_atrasada > 0 OR falhas >= 5 THEN 2\n  WHEN falhas > 0 OR execucoes_longas > 0 THEN 1\n  ELSE 0\nEND AS status\nFROM indicadores",
+          "refId": "A"
+        }
+      ],
+      "description": "Considera apenas DAGs ativas; falhas recentes, fila acima de 10 min e execuções acima de 2 h."
+    },
+    {
+      "id": 18,
+      "title": "SAÚDE DO AIRFLOW · API",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 24,
+        "h": 4
+      },
+      "transparent": false,
+      "datasource": {
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "airflow-health"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "center",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "healthy": {
+                  "index": 0,
+                  "text": "SAUDÁVEL",
+                  "color": "green"
+                },
+                "unhealthy": {
+                  "index": 1,
+                  "text": "INDISPONÍVEL",
+                  "color": "red"
+                },
+                "null": {
+                  "index": 2,
+                  "text": "SEM RESPOSTA",
+                  "color": "dark-gray"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Último heartbeat do scheduler"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 260
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^(Metadatabase|Scheduler|Processador de DAGs|Triggerer)$/"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true,
+        "sortBy": []
+      },
+      "targets": [
+        {
+          "columns": [
+            {
+              "selector": "metadatabase.status",
+              "text": "Metadatabase",
+              "type": "string"
+            },
+            {
+              "selector": "scheduler.status",
+              "text": "Scheduler",
+              "type": "string"
+            },
+            {
+              "selector": "scheduler.latest_scheduler_heartbeat",
+              "text": "Último heartbeat do scheduler",
+          "type": "timestamp"
+            },
+            {
+              "selector": "dag_processor.status",
+              "text": "Processador de DAGs",
+              "type": "string"
+            },
+            {
+              "selector": "triggerer.status",
+              "text": "Triggerer",
+              "type": "string"
+            }
+          ],
+          "datasource": {
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "airflow-health"
+          },
+          "filters": [],
+          "format": "table",
+          "global_query_id": "",
+          "parser": "backend",
+          "refId": "A",
+          "root_selector": "",
+          "source": "url",
+          "type": "json",
+          "url": "https://airflow-apiserver-production-3ccc.up.railway.app/api/v2/monitor/health",
+          "url_options": {
+            "data": "",
+            "method": "GET"
+          }
+        }
+      ],
+      "description": "Dados obtidos diretamente de /api/v2/monitor/health do Airflow."
+    },
+    {
+      "id": 19,
+      "title": "EXECUÇÕES HOJE",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 5,
+        "h": 6
+      },
+      "transparent": false,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "airflow-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
               }
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Falha"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Fila"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 21,
-        "y": 3
-      },
-      "id": 8,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "airflow-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) AS \"Total\", COUNT(*) FILTER (WHERE state = 'success') AS \"Sucesso\", COUNT(*) FILTER (WHERE state = 'failed') AS \"Falha\", COUNT(*) FILTER (WHERE state = 'running') AS \"Executando\", COUNT(*) FILTER (WHERE state = 'queued') AS \"Fila\" FROM dag_run WHERE COALESCE(start_date, queued_at, created_at) >= CURRENT_DATE",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "ERROS HOJE",
+      "type": "gauge",
+      "gridPos": {
+        "x": 5,
+        "y": 11,
+        "w": 4,
+        "h": 6
+      },
+      "transparent": false,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "airflow-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 15
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
@@ -446,21 +571,551 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
       },
       "targets": [
         {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "airflow-postgres"
+          },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT COUNT(*) AS imports_com_erro FROM dag WHERE has_import_errors = TRUE",
+          "rawSql": "SELECT CASE WHEN COUNT(*) = 0 THEN 0 ELSE ROUND(100.0 * COUNT(*) FILTER (WHERE state = 'failed') / COUNT(*), 2) END AS \"Erros\" FROM dag_run WHERE COALESCE(start_date, queued_at, created_at) >= CURRENT_DATE",
           "refId": "A"
         }
-      ],
-      "title": "Import Errors",
-      "type": "stat"
+      ]
     },
     {
+      "id": 15,
+      "title": "POOL SLOTS",
+      "type": "table",
+      "gridPos": {
+        "x": 9,
+        "y": 11,
+        "w": 5,
+        "h": 6
+      },
+      "transparent": false,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "airflow-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false,
+            "inspect": false
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pool"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Em uso"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Fila"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true,
+        "sortBy": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "airflow-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT sp.pool AS \"Pool\", sp.slots AS \"Capacidade\", COALESCE(SUM(ti.pool_slots) FILTER (WHERE ti.state = 'running'), 0) AS \"Em uso\", COALESCE(SUM(ti.pool_slots) FILTER (WHERE ti.state = 'queued'), 0) AS \"Fila\" FROM slot_pool sp LEFT JOIN task_instance ti ON ti.pool = sp.pool GROUP BY sp.pool, sp.slots ORDER BY sp.pool",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "CARGA POR WORKER",
+      "type": "bargauge",
+      "gridPos": {
+        "x": 14,
+        "y": 11,
+        "w": 5,
+        "h": 6
+      },
+      "transparent": false,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "airflow-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 30
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "worker"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "displayMode": "gradient",
+        "maxVizHeight": 300,
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^(Executando|Fila|Hoje)$/",
+          "values": true
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "airflow-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(NULLIF(hostname, ''), 'sem worker') AS worker, COUNT(*) FILTER (WHERE state = 'running') AS \"Executando\", COUNT(*) FILTER (WHERE state = 'queued') AS \"Fila\", COUNT(*) FILTER (WHERE start_date >= CURRENT_DATE) AS \"Hoje\" FROM task_instance GROUP BY 1 ORDER BY \"Hoje\" DESC LIMIT 8",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "title": "DAGS ATIVAS / PAUSADAS",
+      "type": "piechart",
+      "gridPos": {
+        "x": 19,
+        "y": 11,
+        "w": 5,
+        "h": 6
+      },
+      "transparent": false,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "airflow-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Ativas"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pausadas"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "dark-gray",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "displayLabels": [
+          "name",
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "airflow-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT CASE WHEN is_paused THEN 'Pausadas' ELSE 'Ativas' END AS estado, COUNT(*) AS total FROM dag WHERE is_stale = FALSE GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "FALHAS E EXECUÇÕES POR TAG",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 8,
+        "h": 9
+      },
+      "transparent": false,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "airflow-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true,
+            "inspect": false
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Com falha"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Executando"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "enablePagination": true,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Com falha"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "airflow-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH ultima AS (SELECT DISTINCT ON (dag_id) dag_id, state FROM dag_run ORDER BY dag_id, COALESCE(logical_date, created_at) DESC), tags AS (SELECT d.dag_id, COALESCE(NULLIF(STRING_AGG(DISTINCT dt.name, ', '), ''), 'sem tag') AS tag, COALESCE(d.owners, 'sem responsável') AS responsavel FROM dag d LEFT JOIN dag_tag dt ON dt.dag_id = d.dag_id WHERE d.is_stale = FALSE GROUP BY d.dag_id, d.owners) SELECT t.tag AS \"Tag\", t.responsavel AS \"Responsável\", COUNT(*) FILTER (WHERE u.state = 'failed') AS \"Com falha\", COUNT(*) FILTER (WHERE u.state = 'running') AS \"Executando\", COUNT(*) AS \"DAGs\" FROM tags t LEFT JOIN ultima u ON u.dag_id = t.dag_id GROUP BY t.tag, t.responsavel HAVING COUNT(*) FILTER (WHERE u.state IN ('failed','running')) > 0 ORDER BY \"Com falha\" DESC, \"Executando\" DESC, t.tag LIMIT 50",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "DAGS · ÚLTIMA EXECUÇÃO",
+      "type": "table",
+      "gridPos": {
+        "x": 8,
+        "y": 17,
+        "w": 16,
+        "h": 9
+      },
+      "transparent": false,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "airflow-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true,
+            "inspect": false
+          },
+          "mappings": []
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Estado"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "failed": {
+                        "index": 0,
+                        "text": "FALHA",
+                        "color": "red"
+                      },
+                      "success": {
+                        "index": 1,
+                        "text": "SUCESSO",
+                        "color": "green"
+                      },
+                      "running": {
+                        "index": 2,
+                        "text": "EXECUTANDO",
+                        "color": "blue"
+                      },
+                      "queued": {
+                        "index": 3,
+                        "text": "FILA",
+                        "color": "yellow"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Pausada"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "DAG"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 260
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "enablePagination": true,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "airflow-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT d.dag_id AS \"DAG\", d.owners AS \"Responsável\", d.is_paused AS \"Pausada\", d.timetable_summary AS \"Schedule\", r.state AS \"Estado\", r.start_date AS \"Início\", r.end_date AS \"Fim\", ROUND(EXTRACT(EPOCH FROM (COALESCE(r.end_date, NOW()) - r.start_date))::NUMERIC / 60, 2) AS \"Duração (min)\", d.next_dagrun AS \"Próxima execução\" FROM dag d LEFT JOIN LATERAL (SELECT state, start_date, end_date FROM dag_run dr WHERE dr.dag_id = d.dag_id ORDER BY COALESCE(dr.logical_date, dr.created_at) DESC LIMIT 1) r ON TRUE WHERE d.is_stale = FALSE ORDER BY CASE r.state WHEN 'failed' THEN 0 WHEN 'running' THEN 1 ELSE 2 END, r.start_date DESC NULLS LAST LIMIT 250",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "HISTÓRICO DE EXECUÇÕES · 24 HORAS",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 24,
+        "h": 7
+      },
+      "transparent": false,
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "airflow-postgres"
@@ -478,15 +1133,29 @@
             "barAlignment": 0,
             "drawStyle": "bars",
             "fillOpacity": 45,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
             "lineInterpolation": "linear",
             "lineWidth": 1,
-            "pointSize": 5,
+            "pointSize": 3,
+            "scaleDistribution": {
+              "type": "linear"
+            },
             "showPoints": "never",
+            "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
           },
+          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -527,16 +1196,39 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "running"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "queued"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
           }
         ]
       },
-      "gridPos": {
-        "h": 8,
-        "w": 16,
-        "x": 0,
-        "y": 7
-      },
-      "id": 9,
       "options": {
         "legend": {
           "calcs": [],
@@ -545,23 +1237,36 @@
           "showLegend": true
         },
         "tooltip": {
+          "hideZeros": false,
           "mode": "multi",
           "sort": "desc"
         }
       },
       "targets": [
         {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "airflow-postgres"
+          },
           "editorMode": "code",
           "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT DATE_TRUNC('hour', COALESCE(start_date, queued_at, created_at)) AS time, COUNT(*) FILTER (WHERE state = 'success') AS success, COUNT(*) FILTER (WHERE state = 'failed') AS failed, COUNT(*) FILTER (WHERE state = 'running') AS running, COUNT(*) FILTER (WHERE state = 'queued') AS queued FROM dag_run WHERE COALESCE(start_date, queued_at, created_at) >= NOW() - INTERVAL '24 hours' GROUP BY 1 ORDER BY 1",
           "refId": "A"
         }
-      ],
-      "title": "Execuções por Hora · 24h",
-      "type": "timeseries"
+      ]
     },
     {
+      "id": 12,
+      "title": "FALHAS RECENTES · 24 HORAS",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 12,
+        "h": 8
+      },
+      "transparent": false,
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "airflow-postgres"
@@ -569,453 +1274,114 @@
       "fieldConfig": {
         "defaults": {
           "custom": {
-            "align": "center",
+            "align": "auto",
             "cellOptions": {
               "type": "auto"
             },
             "filterable": true,
-            "inspect": true
+            "inspect": false
           },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
+          "mappings": []
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 7
-      },
-      "id": 10,
       "options": {
         "cellHeight": "sm",
         "footer": {
           "countRows": false,
+          "enablePagination": true,
           "fields": "",
           "reducer": [
             "sum"
           ],
           "show": false
         },
-        "showHeader": true
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (job_type) job_type AS componente, state AS estado, hostname, latest_heartbeat AS ultimo_heartbeat, EXTRACT(EPOCH FROM (NOW() - latest_heartbeat))::INTEGER AS atraso_segundos FROM job WHERE job_type IN ('SchedulerJob', 'TriggererJob', 'DagProcessorJob') ORDER BY job_type, latest_heartbeat DESC",
-          "refId": "A"
-        }
-      ],
-      "title": "Heartbeats dos Componentes",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "airflow-postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "center",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "filterable": true,
-            "inspect": true
-          },
-          "mappings": [
-            {
-              "options": {
-                "failed": {
-                  "color": "dark-red",
-                  "index": 2,
-                  "text": "Falha"
-                },
-                "running": {
-                  "color": "orange",
-                  "index": 1,
-                  "text": "Executando"
-                },
-                "success": {
-                  "color": "green",
-                  "index": 0,
-                  "text": "Sucesso"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 11,
-        "w": 24,
-        "x": 0,
-        "y": 15
-      },
-      "id": 11,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": true,
-          "fields": "",
-          "reducer": [
-            "count"
-          ],
-          "show": true
-        },
         "showHeader": true,
-        "sortBy": [
-          {
-            "desc": true,
-            "displayName": "Início"
-          }
-        ]
+        "sortBy": []
       },
       "targets": [
         {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT d.dag_id AS \"DAG\", d.owners AS \"Responsável\", d.is_paused AS \"Pausada\", d.timetable_summary AS \"Schedule\", r.state AS \"Estado\", r.start_date AS \"Início\", r.end_date AS \"Fim\", ROUND(EXTRACT(EPOCH FROM (COALESCE(r.end_date, NOW()) - r.start_date))::NUMERIC / 60, 2) AS \"Duração (min)\", d.next_dagrun AS \"Próxima execução\" FROM dag d LEFT JOIN LATERAL (SELECT state, start_date, end_date FROM dag_run dr WHERE dr.dag_id = d.dag_id ORDER BY COALESCE(dr.logical_date, dr.created_at) DESC LIMIT 1) r ON TRUE WHERE d.is_stale = FALSE ORDER BY CASE r.state WHEN 'failed' THEN 0 WHEN 'running' THEN 1 ELSE 2 END, r.start_date DESC NULLS LAST LIMIT 250",
-          "refId": "A"
-        }
-      ],
-      "title": "DAGs · Última Execução",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "airflow-postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "center",
-            "cellOptions": {
-              "applyToRow": true,
-              "type": "color-background"
-            },
-            "filterable": true,
-            "inspect": true
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "airflow-postgres"
           },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "dark-red",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 14,
-        "x": 0,
-        "y": 26
-      },
-      "id": 12,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": true,
-          "fields": "",
-          "reducer": [
-            "count"
-          ],
-          "show": true
-        },
-        "showHeader": true
-      },
-      "targets": [
-        {
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT dag_id AS \"DAG\", run_id AS \"Run\", start_date AS \"Início\", end_date AS \"Fim\", triggering_user_name AS \"Usuário\", run_type AS \"Tipo\" FROM dag_run WHERE state = 'failed' AND start_date >= NOW() - INTERVAL '24 hours' ORDER BY start_date DESC LIMIT 100",
           "refId": "A"
         }
-      ],
-      "title": "Falhas Recentes · 24h",
-      "type": "table"
+      ]
     },
     {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "airflow-postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            }
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 5,
-        "x": 14,
-        "y": 26
-      },
-      "id": 13,
-      "options": {
-        "displayLabels": [
-          "name",
-          "value"
-        ],
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "pieType": "donut",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT COALESCE(state, 'sem estado') AS estado, COUNT(*) AS total FROM task_instance WHERE COALESCE(start_date, queued_dttm, scheduled_dttm) >= NOW() - INTERVAL '24 hours' GROUP BY 1 ORDER BY 2 DESC",
-          "refId": "A"
-        }
-      ],
-      "title": "Estados das Tasks · 24h",
-      "type": "piechart"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "airflow-postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "center",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "filterable": true,
-            "inspect": true
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 5,
-        "x": 19,
-        "y": 26
-      },
-      "id": 14,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "showHeader": true
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT COALESCE(NULLIF(hostname, ''), 'sem worker') AS worker, COUNT(*) FILTER (WHERE state = 'running') AS executando, COUNT(*) FILTER (WHERE state = 'queued') AS fila, COUNT(*) FILTER (WHERE start_date >= CURRENT_DATE) AS tasks_hoje FROM task_instance GROUP BY 1 ORDER BY tasks_hoje DESC",
-          "refId": "A"
-        }
-      ],
-      "title": "Carga por Worker",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "airflow-postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "center",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "filterable": true,
-            "inspect": true
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 10,
-        "x": 0,
-        "y": 35
-      },
-      "id": 15,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "showHeader": true
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT sp.pool AS \"Pool\", sp.slots AS \"Capacidade\", COALESCE(SUM(ti.pool_slots) FILTER (WHERE ti.state = 'running'), 0) AS \"Em uso\", COALESCE(SUM(ti.pool_slots) FILTER (WHERE ti.state = 'queued'), 0) AS \"Fila\", COALESCE(SUM(ti.pool_slots) FILTER (WHERE ti.state = 'deferred'), 0) AS \"Deferred\" FROM slot_pool sp LEFT JOIN task_instance ti ON ti.pool = sp.pool GROUP BY sp.pool, sp.slots ORDER BY sp.pool",
-          "refId": "A"
-        }
-      ],
-      "title": "Pool Slots",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "airflow-postgres"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "center",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "filterable": true,
-            "inspect": true
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 14,
-        "x": 10,
-        "y": 35
-      },
       "id": 16,
+      "title": "TASKS MAIS LONGAS · 24 HORAS",
+      "type": "table",
+      "gridPos": {
+        "x": 12,
+        "y": 33,
+        "w": 12,
+        "h": 8
+      },
+      "transparent": false,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "airflow-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true,
+            "inspect": false
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
       "options": {
         "cellHeight": "sm",
         "footer": {
           "countRows": false,
+          "enablePagination": true,
           "fields": "",
           "reducer": [
             "sum"
           ],
           "show": false
         },
-        "showHeader": true
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Duração (min)"
+          }
+        ]
       },
       "targets": [
         {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "airflow-postgres"
+          },
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
           "rawSql": "SELECT dag_id AS \"DAG\", task_id AS \"Task\", operator AS \"Operator\", hostname AS \"Worker\", start_date AS \"Início\", ROUND(EXTRACT(EPOCH FROM (COALESCE(end_date, NOW()) - start_date))::NUMERIC / 60, 2) AS \"Duração (min)\", state AS \"Estado\" FROM task_instance WHERE start_date >= NOW() - INTERVAL '24 hours' ORDER BY COALESCE(end_date, NOW()) - start_date DESC LIMIT 30",
           "refId": "A"
         }
-      ],
-      "title": "Tasks Mais Longas · 24h",
-      "type": "table"
+      ]
     }
   ],
-  "refresh": "10s",
+  "refresh": "30s",
   "schemaVersion": 39,
   "tags": [
     "airflow",
     "railway",
-    "celery"
+    "operacoes"
   ],
   "templating": {
     "list": []
@@ -1024,9 +1390,16 @@
     "from": "now-24h",
     "to": "now"
   },
-  "timepicker": {},
+  "timepicker": {
+    "refresh_intervals": [
+      "10s",
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
   "timezone": "browser",
-  "title": "AIRFLOW MONITOR",
+  "title": "Airflow Monitor",
   "uid": "airflow-monitor-railway",
   "version": 1,
   "weekStart": "monday"

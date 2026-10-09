@@ -1,0 +1,13 @@
+apiVersion: 1
+
+datasources:
+  - name: Airflow Health API
+    uid: airflow-health
+    type: yesoreyeram-infinity-datasource
+    access: proxy
+    isDefault: false
+    editable: false
+    url: https://airflow-apiserver-production-3ccc.up.railway.app
+    jsonData:
+      allowedHosts:
+        - https://airflow-apiserver-production-3ccc.up.railway.app
