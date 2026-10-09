@@ -1,0 +1,27 @@
+apiVersion: 1
+
+deleteDatasources:
+  - name: Airflow Metadata
+    orgId: 1
+
+datasources:
+  - name: Airflow Metadata
+    uid: airflow-postgres
+    orgId: 1
+    type: postgres
+    access: proxy
+    url: $__env{PGHOST}:$__env{PGPORT}
+    user: $__env{PGUSER}
+    isDefault: true
+    editable: false
+    jsonData:
+      database: $__env{PGDATABASE}
+      sslmode: require
+      tlsSkipVerify: true
+      postgresVersion: 1800
+      timescaledb: false
+      maxOpenConns: 5
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+    secureJsonData:
+      password: $__env{PGPASSWORD}
