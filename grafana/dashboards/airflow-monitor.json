@@ -105,24 +105,24 @@
             {
               "type": "value",
               "options": {
-                "-1": {
+                "Estável": {
                   "index": 0,
-                  "text": "SEM DAGS ATIVAS",
-                  "color": "dark-gray"
-                },
-                "0": {
-                  "index": 1,
-                  "text": "SAUDÁVEL",
+                  "text": "ESTÁVEL",
                   "color": "green"
                 },
-                "1": {
-                  "index": 2,
+                "Atenção": {
+                  "index": 1,
                   "text": "ATENÇÃO",
                   "color": "yellow"
                 },
-                "2": {
+                "Atenção Crítica": {
+                  "index": 2,
+                  "text": "ATENÇÃO CRÍTICA",
+                  "color": "red"
+                },
+                "Instável": {
                   "index": 3,
-                  "text": "CRÍTICO",
+                  "text": "INSTÁVEL",
                   "color": "red"
                 }
               }
@@ -132,20 +132,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "dark-gray",
-                "value": null
-              },
-              {
                 "color": "green",
-                "value": 0
-              },
-              {
-                "color": "yellow",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 2
+                "value": null
               }
             ]
           },
@@ -177,11 +165,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH classificadas AS (\n  SELECT d.dag_id\n  FROM dag d\n  WHERE d.is_stale = FALSE\n    AND d.is_paused = FALSE\n    AND (NOT (\n  d.owners ILIKE '%integr%'\n  OR EXISTS (\n    SELECT 1 FROM dag_tag dt\n    WHERE dt.dag_id = d.dag_id AND dt.name ILIKE '%integr%'\n  )\n))\n), ultima_execucao AS (\n  SELECT DISTINCT ON (dr.dag_id) dr.dag_id, dr.state\n  FROM dag_run dr\n  JOIN classificadas c ON c.dag_id = dr.dag_id\n  ORDER BY dr.dag_id, COALESCE(dr.logical_date, dr.created_at) DESC\n), indicadores AS (\n  SELECT\n    (SELECT COUNT(*) FROM classificadas) AS dags,\n    (SELECT COUNT(*) FROM ultima_execucao WHERE state = 'failed') AS falhas,\n    (SELECT COUNT(*) FROM task_instance ti JOIN classificadas c ON c.dag_id = ti.dag_id\n      WHERE ti.state = 'queued' AND COALESCE(ti.queued_dttm, ti.scheduled_dttm) < NOW() - INTERVAL '10 minutes') AS fila_atrasada,\n    (SELECT COUNT(*) FROM task_instance ti JOIN classificadas c ON c.dag_id = ti.dag_id\n      WHERE ti.state = 'running' AND ti.start_date < NOW() - INTERVAL '2 hours') AS execucoes_longas\n)\nSELECT CASE\n  WHEN dags = 0 THEN -1\n  WHEN fila_atrasada > 0 OR falhas >= 5 THEN 2\n  WHEN falhas > 0 OR execucoes_longas > 0 THEN 1\n  ELSE 0\nEND AS status\nFROM indicadores",
+          "rawSql": "WITH dags_filtradas AS (\n    SELECT d.*\n    FROM dag d\n    WHERE d.is_stale = FALSE\n      AND COALESCE(d.timetable_summary, '') <> '* * * * *'\n      AND COALESCE(d.owners, '') NOT ILIKE '%integracao%'\n),\nfailed_ordenados AS (\n    SELECT\n        dr.logical_date,\n        ROW_NUMBER() OVER (ORDER BY dr.logical_date DESC) AS posicao\n    FROM dag_run dr\n    WHERE DATE(dr.logical_date) = CURRENT_DATE\n      AND dr.state = 'failed'\n      AND dr.logical_date IS NOT NULL\n      AND dr.dag_id IN (SELECT dag_id FROM dags_filtradas)\n),\nultimos_failed AS (\n    SELECT\n        MAX(logical_date) FILTER (WHERE posicao = 1) AS last_failed,\n        MAX(logical_date) FILTER (WHERE posicao = 2) AS before_last_failed\n    FROM failed_ordenados\n),\nruns_resumo AS (\n    SELECT\n        d.dag_id,\n        d.is_paused,\n        d.next_dagrun_data_interval_end,\n        (\n            SELECT\n                dr_atual.queued_at + (\n                    (\n                        SELECT dr1.logical_date\n                        FROM dag_run dr1\n                        WHERE dr1.dag_id = dr_atual.dag_id\n                          AND dr1.logical_date IS NOT NULL\n                        ORDER BY dr1.logical_date DESC\n                        LIMIT 1\n                    )\n                    -\n                    (\n                        SELECT dr2.logical_date\n                        FROM dag_run dr2\n                        WHERE dr2.dag_id = dr_atual.dag_id\n                          AND dr2.state <> 'running'\n                          AND dr2.logical_date IS NOT NULL\n                        ORDER BY dr2.logical_date DESC\n                        LIMIT 1 OFFSET 1\n                    )\n                )\n            FROM dag_run dr_atual\n            WHERE dr_atual.dag_id = d.dag_id\n              AND dr_atual.logical_date IS NOT NULL\n            ORDER BY dr_atual.logical_date DESC\n            LIMIT 1\n        ) AS projected_limit,\n        (\n            SELECT COUNT(*)\n            FROM dag_run dr\n            WHERE dr.dag_id = d.dag_id\n              AND dr.state = 'running'\n        ) AS qtd_running\n    FROM dags_filtradas d\n),\nmetricas AS (\n    SELECT\n        COUNT(*) FILTER (\n            WHERE next_dagrun_data_interval_end + INTERVAL '3 hours' < NOW()\n              AND is_paused = FALSE\n        ) AS qtd_critica,\n        COUNT(*) FILTER (\n            WHERE projected_limit + INTERVAL '10 minutes' < NOW()\n              AND is_paused = FALSE\n              AND qtd_running > 0\n        ) AS qtd_atencao\n    FROM runs_resumo\n),\nqueued_metric AS (\n    SELECT COUNT(*) AS qtd_queued\n    FROM task_instance ti\n    JOIN dags_filtradas d ON d.dag_id = ti.dag_id\n    WHERE ti.state = 'queued'\n      AND COALESCE(ti.queued_dttm, ti.scheduled_dttm)\n            + INTERVAL '3 minutes' < NOW()\n)\nSELECT\n    CASE\n        WHEN uf.last_failed IS NOT NULL\n         AND uf.before_last_failed IS NOT NULL\n         AND uf.last_failed - uf.before_last_failed <= INTERVAL '1 minute'\n         AND CURRENT_TIMESTAMP - uf.last_failed < INTERVAL '10 minutes'\n            THEN 'Instável'\n        WHEN m.qtd_critica > 0\n            THEN 'Atenção Crítica'\n        WHEN m.qtd_atencao > 0\n            THEN 'Atenção'\n        WHEN uf.last_failed IS NOT NULL\n         AND uf.before_last_failed IS NOT NULL\n         AND uf.last_failed - uf.before_last_failed > INTERVAL '1 minute'\n         AND CURRENT_TIMESTAMP - uf.last_failed < INTERVAL '30 minutes'\n            THEN 'Atenção'\n        WHEN q.qtd_queued > 0\n            THEN 'Atenção Crítica'\n        ELSE 'Estável'\n    END AS status_airflow_dados\nFROM ultimos_failed uf\nCROSS JOIN metricas m\nCROSS JOIN queued_metric q;",
           "refId": "A"
         }
       ],
-      "description": "Considera apenas DAGs ativas; falhas recentes, fila acima de 10 min e execuções acima de 2 h."
+      "description": "Regra operacional informada, adaptada ao schema do Airflow 3. DAGs com agendamento a cada minuto são desconsideradas."
     },
     {
       "id": 17,
@@ -207,24 +195,24 @@
             {
               "type": "value",
               "options": {
-                "-1": {
+                "Estável": {
                   "index": 0,
-                  "text": "SEM DAGS ATIVAS",
-                  "color": "dark-gray"
-                },
-                "0": {
-                  "index": 1,
-                  "text": "SAUDÁVEL",
+                  "text": "ESTÁVEL",
                   "color": "green"
                 },
-                "1": {
-                  "index": 2,
+                "Atenção": {
+                  "index": 1,
                   "text": "ATENÇÃO",
                   "color": "yellow"
                 },
-                "2": {
+                "Atenção Crítica": {
+                  "index": 2,
+                  "text": "ATENÇÃO CRÍTICA",
+                  "color": "red"
+                },
+                "Instável": {
                   "index": 3,
-                  "text": "CRÍTICO",
+                  "text": "INSTÁVEL",
                   "color": "red"
                 }
               }
@@ -234,20 +222,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "dark-gray",
-                "value": null
-              },
-              {
                 "color": "green",
-                "value": 0
-              },
-              {
-                "color": "yellow",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 2
+                "value": null
               }
             ]
           },
@@ -279,11 +255,11 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH classificadas AS (\n  SELECT d.dag_id\n  FROM dag d\n  WHERE d.is_stale = FALSE\n    AND d.is_paused = FALSE\n    AND ((\n  d.owners ILIKE '%integr%'\n  OR EXISTS (\n    SELECT 1 FROM dag_tag dt\n    WHERE dt.dag_id = d.dag_id AND dt.name ILIKE '%integr%'\n  )\n))\n), ultima_execucao AS (\n  SELECT DISTINCT ON (dr.dag_id) dr.dag_id, dr.state\n  FROM dag_run dr\n  JOIN classificadas c ON c.dag_id = dr.dag_id\n  ORDER BY dr.dag_id, COALESCE(dr.logical_date, dr.created_at) DESC\n), indicadores AS (\n  SELECT\n    (SELECT COUNT(*) FROM classificadas) AS dags,\n    (SELECT COUNT(*) FROM ultima_execucao WHERE state = 'failed') AS falhas,\n    (SELECT COUNT(*) FROM task_instance ti JOIN classificadas c ON c.dag_id = ti.dag_id\n      WHERE ti.state = 'queued' AND COALESCE(ti.queued_dttm, ti.scheduled_dttm) < NOW() - INTERVAL '10 minutes') AS fila_atrasada,\n    (SELECT COUNT(*) FROM task_instance ti JOIN classificadas c ON c.dag_id = ti.dag_id\n      WHERE ti.state = 'running' AND ti.start_date < NOW() - INTERVAL '2 hours') AS execucoes_longas\n)\nSELECT CASE\n  WHEN dags = 0 THEN -1\n  WHEN fila_atrasada > 0 OR falhas >= 5 THEN 2\n  WHEN falhas > 0 OR execucoes_longas > 0 THEN 1\n  ELSE 0\nEND AS status\nFROM indicadores",
+          "rawSql": "WITH dags_filtradas AS (\n    SELECT d.*\n    FROM dag d\n    WHERE d.is_stale = FALSE\n      AND COALESCE(d.timetable_summary, '') <> '* * * * *'\n      AND COALESCE(d.owners, '') ILIKE '%integracao%'\n),\nfailed_ordenados AS (\n    SELECT\n        dr.logical_date,\n        ROW_NUMBER() OVER (ORDER BY dr.logical_date DESC) AS posicao\n    FROM dag_run dr\n    WHERE DATE(dr.logical_date) = CURRENT_DATE\n      AND dr.state = 'failed'\n      AND dr.logical_date IS NOT NULL\n      AND dr.dag_id IN (SELECT dag_id FROM dags_filtradas)\n),\nultimos_failed AS (\n    SELECT\n        MAX(logical_date) FILTER (WHERE posicao = 1) AS last_failed,\n        MAX(logical_date) FILTER (WHERE posicao = 2) AS before_last_failed\n    FROM failed_ordenados\n),\nruns_resumo AS (\n    SELECT\n        d.dag_id,\n        d.is_paused,\n        d.next_dagrun_data_interval_end,\n        (\n            SELECT\n                dr_atual.queued_at + (\n                    (\n                        SELECT dr1.logical_date\n                        FROM dag_run dr1\n                        WHERE dr1.dag_id = dr_atual.dag_id\n                          AND dr1.logical_date IS NOT NULL\n                        ORDER BY dr1.logical_date DESC\n                        LIMIT 1\n                    )\n                    -\n                    (\n                        SELECT dr2.logical_date\n                        FROM dag_run dr2\n                        WHERE dr2.dag_id = dr_atual.dag_id\n                          AND dr2.state <> 'running'\n                          AND dr2.logical_date IS NOT NULL\n                        ORDER BY dr2.logical_date DESC\n                        LIMIT 1 OFFSET 1\n                    )\n                )\n            FROM dag_run dr_atual\n            WHERE dr_atual.dag_id = d.dag_id\n              AND dr_atual.logical_date IS NOT NULL\n            ORDER BY dr_atual.logical_date DESC\n            LIMIT 1\n        ) AS projected_limit,\n        (\n            SELECT COUNT(*)\n            FROM dag_run dr\n            WHERE dr.dag_id = d.dag_id\n              AND dr.state = 'running'\n        ) AS qtd_running\n    FROM dags_filtradas d\n),\nmetricas AS (\n    SELECT\n        COUNT(*) FILTER (\n            WHERE next_dagrun_data_interval_end + INTERVAL '3 hours' < NOW()\n              AND is_paused = FALSE\n        ) AS qtd_critica,\n        COUNT(*) FILTER (\n            WHERE projected_limit + INTERVAL '10 minutes' < NOW()\n              AND is_paused = FALSE\n              AND qtd_running > 0\n        ) AS qtd_atencao\n    FROM runs_resumo\n),\nqueued_metric AS (\n    SELECT COUNT(*) AS qtd_queued\n    FROM task_instance ti\n    JOIN dags_filtradas d ON d.dag_id = ti.dag_id\n    WHERE ti.state = 'queued'\n      AND COALESCE(ti.queued_dttm, ti.scheduled_dttm)\n            + INTERVAL '3 minutes' < NOW()\n)\nSELECT\n    CASE\n        WHEN uf.last_failed IS NOT NULL\n         AND uf.before_last_failed IS NOT NULL\n         AND uf.last_failed - uf.before_last_failed <= INTERVAL '1 minute'\n         AND CURRENT_TIMESTAMP - uf.last_failed < INTERVAL '10 minutes'\n            THEN 'Instável'\n        WHEN m.qtd_critica > 0\n            THEN 'Atenção Crítica'\n        WHEN m.qtd_atencao > 0\n            THEN 'Atenção'\n        WHEN uf.last_failed IS NOT NULL\n         AND uf.before_last_failed IS NOT NULL\n         AND uf.last_failed - uf.before_last_failed > INTERVAL '1 minute'\n         AND CURRENT_TIMESTAMP - uf.last_failed < INTERVAL '30 minutes'\n            THEN 'Atenção'\n        WHEN q.qtd_queued > 0\n            THEN 'Atenção Crítica'\n        ELSE 'Estável'\n    END AS status_airflow_integracao\nFROM ultimos_failed uf\nCROSS JOIN metricas m\nCROSS JOIN queued_metric q;",
           "refId": "A"
         }
       ],
-      "description": "Considera apenas DAGs ativas; falhas recentes, fila acima de 10 min e execuções acima de 2 h."
+      "description": "Regra operacional informada, adaptada ao schema do Airflow 3. DAGs com agendamento a cada minuto são desconsideradas."
     },
     {
       "id": 18,
@@ -389,7 +365,7 @@
             {
               "selector": "scheduler.latest_scheduler_heartbeat",
               "text": "Último heartbeat do scheduler",
-          "type": "timestamp"
+              "type": "timestamp"
             },
             {
               "selector": "dag_processor.status",
