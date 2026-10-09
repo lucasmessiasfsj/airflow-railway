@@ -4,10 +4,10 @@ USER root
 
 COPY grafana-entrypoint.sh /grafana-entrypoint.sh
 COPY provisioning/ /etc/grafana/provisioning/
-COPY dashboards/ /var/lib/grafana/dashboards/
+COPY dashboards/ /etc/grafana/dashboards/
 
 RUN chmod 0755 /grafana-entrypoint.sh \
- && chown -R 472:0 /etc/grafana/provisioning /var/lib/grafana/dashboards
+ && chown -R 472:0 /etc/grafana/provisioning /etc/grafana/dashboards
 
 USER 472
 
